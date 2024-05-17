@@ -1,12 +1,12 @@
 # Training settings
 training:
-    experiment_name: ???  # e.g., version of config
+    experiment_name: 1.0  # e.g., version of config
     description: ???  # You can add notes here
-    dataset_dir: ???  # Directory where the dataset is stored
+    dataset_dir: datasets  # Directory where the dataset is stored
     use_roll_moment_data: True  # Note: Adjust "obs_dim" below accordingly.
 
     epochs: 100  # Number of training epochs
-    mini_batch_size: 64  # Size of mini-batches
+    mini_batch_size: 64 # Size of mini-batches
     lr: 0.001  # Initial learning rate
     lr_decay_steps: [50,95]  # Number of epochs before learning rate decays by factor 0.1
     weight_decay: 0.00001  # L2 regularization
@@ -62,8 +62,8 @@ simulation:
     add_noise: True  # Add the noise specified below to the simulated measurements?
     noise_sd_w: 0.05  # Standard deviation of normally distributed noise for the updraft velocities [m/s]
     noise_sd_l: 0.06 # Standard deviation of normally distributed noise for the roll moments induced by updrafts [Nm]
-    dt_output_sequence: 0.1  # Sampling period of output sequences [s]
-    output_sequence_length: 7000  # Desired minimum sequence length. Shorter sequences are discarded. Longer sequences are truncated.
+    dt_output_sequence: 0.02  # Sampling period of output sequences [s]
+    output_sequence_length: 200  # Desired minimum sequence length. Shorter sequences are discarded. Longer sequences are truncated.
 
 # Min and max values used to normalize the training data and labels/predictions
 normalization:

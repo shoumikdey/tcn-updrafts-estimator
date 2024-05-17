@@ -1,5 +1,5 @@
 """
-Tool to train a TCN-based updraft estimator.
+Tool to train a Transformer Based updraft Estimator.
 
 Copyright (c) 2024 Institute of Flight Mechanics and Controls
 
@@ -14,18 +14,25 @@ You should have received a copy of the GNU General Public License along with thi
 https://www.gnu.org/licenses.
 """
 
-import os
-import argparse
-import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
-import yaml
-from utils.data import UpdraftsDataset, Normalizer, remove_roll_moment
-from networks.tcn import TCN
+import torch.nn.functional as F
+import math
+import copy
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from torch import optim
+from torchinfo import summary
+import os
 from networks.transformer import Encoder_tx
+
+from utils.data import UpdraftsDataset, Normalizer, remove_roll_moment
+from torch.utils.data import DataLoader
+import yaml
+import argparse
 
 
 def parse_args():
@@ -51,22 +58,17 @@ def parse_args():
                         help="Device used for training, default: use GPU if available")
     return parser.parse_args()
 
-
 def train_loop(dataloader, model, loss_fn, optimizer, device, return_example=False, gradient_clip=False):
-    """Performs one training epoch."""
     size = len(dataloader.dataset)
     model.train()
     loss_train = 0
     for x, y in dataloader:
-        # Move data to device
         x, y = x.float().to(device), y.float().to(device)
 
-        # Compute prediction and loss
         pred = model(x)
         loss = loss_fn(pred, y)
-        loss_train += loss * len(x)
+        loss_train += loss + len(x)
 
-        # Backpropagation
         optimizer.zero_grad()
         loss.backward()
         if gradient_clip:
@@ -74,13 +76,11 @@ def train_loop(dataloader, model, loss_fn, optimizer, device, return_example=Fal
         optimizer.step()
 
     loss_train /= size
-
     if return_example:
         return loss_train, pred[0], y[0]
     else:
         return loss_train
-
-
+    
 def val_loop(dataloader, model, loss_fn, device, return_example=False):
     """Performs one validation run."""
     model.eval()
@@ -104,30 +104,14 @@ def val_loop(dataloader, model, loss_fn, device, return_example=False):
     else:
         return loss_val
 
-
 def main(args):
-    # Set device for PyTorch
-    if args.device:
-        device = args.device
-    else:
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # Use GPU if available
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(device)
 
-    # Load config
     with open(args.config) as f:
         config = yaml.safe_load(f)
 
-    # Set writer for TensorBoard
-    print(os.path.join(os.getcwd(), os.path.join(r"runs", f"{config['training']['experiment_name']}")))
-    writer = SummaryWriter(os.path.join(os.getcwd(), os.path.join(r"runs", f"{config['training']['experiment_name']}")))
-    print(writer)
-    # Prepare directories
-    os.makedirs(args.checkpoints_folder, exist_ok=True)
-    os.makedirs(args.models_folder, exist_ok=True)
-
-    # Init data normalization
     normalizer = Normalizer(config)
-
-    # Configure dataset
     if config["training"]["use_roll_moment_data"]:
         x_transform_functions = (normalizer.normalize_x, np.transpose)
     else:
@@ -139,65 +123,19 @@ def main(args):
     data_val = UpdraftsDataset(os.path.join(dataset_dir, args.val_folder, args.x_folder),
                                os.path.join(dataset_dir, args.val_folder, args.y_folder),
                                x_transform_functions, normalizer.normalize_y)
-
-    # Configure dataloader
+    
     dataloader_train = DataLoader(data_train, batch_size=config["training"]["mini_batch_size"], shuffle=True)
     dataloader_val = DataLoader(data_val, batch_size=config["training"]["mini_batch_size"], shuffle=True)
-
-    # Configure network
-    #model = TCN(config).to(device)
-    model = Encoder_tx((4, 200), (1,12)).to(device)
-
-    # Define loss function
+    
     loss_fn = nn.MSELoss()
-
-    # Set optimizer settings
+    model = Encoder_tx((4, 200), (1,12)).to(device)
     optimizer = torch.optim.Adam(model.parameters(),
                                  lr=config["training"]["lr"],
                                  weight_decay=config["training"]["weight_decay"])
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, config["training"]["lr_decay_steps"], gamma=0.1)
+    print('Starting Training')
 
-    # Train and validate
-    print("Training started. Progress:")
-    for epoch in tqdm(range(config["training"]["epochs"])):
-        loss_train, example_pred_train, example_label_train = train_loop(dataloader_train, model, loss_fn, optimizer,
-                                                                         device, return_example=True,
-                                                                         gradient_clip=config["training"]["gradient_clipping"])
-        loss_val, example_pred_val, example_label_val = val_loop(dataloader_val, model, loss_fn,
-                                                                 device, return_example=True)
-
-        # Send info to TensorBoard
-        writer.add_scalar(f"Loss/train", loss_train, epoch)
-        writer.add_scalar(f"Loss/val", loss_val, epoch)
-        writer.add_scalar(f"Lr", lr_scheduler.get_last_lr()[0], epoch)
-        example_label_train_str = np.array2string(example_label_train.detach().cpu().numpy(), precision=2, floatmode="fixed")
-        example_pred_train_str = np.array2string(example_pred_train.detach().cpu().numpy(), precision=2, floatmode="fixed")
-        example_label_val_str = np.array2string(example_label_val.cpu().numpy(), precision=2, floatmode="fixed")
-        example_pred_val_str = np.array2string(example_pred_val.cpu().numpy(), precision=2, floatmode="fixed")
-        writer.add_text(f"Examples/train",
-                        f"True: \n {example_label_train_str}  \n Pred: \n {example_pred_train_str}", epoch)
-        writer.add_text(f"Examples/val",
-                        f"True: \n {example_label_val_str}  \n Pred: \n {example_pred_val_str}", epoch)
-
-        # Save checkpoint
-        torch.save({'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'scheduler_state_dict': lr_scheduler.state_dict(),
-                    'loss': loss_train},
-                   f"{args.checkpoints_folder}/latest_checkpoint_{config['training']['experiment_name']}.pth")
-
-        lr_scheduler.step()
-
-    # Close TensorBoard writer
-    writer.flush()
-    writer.close()
-
-    # Save model
-    torch.save(model.state_dict(), f"{args.models_folder}/model_{config['training']['experiment_name']}.pth")
-
-    print("Training completed.")
-
+    
 
 if __name__ == '__main__':
     args = parse_args()
