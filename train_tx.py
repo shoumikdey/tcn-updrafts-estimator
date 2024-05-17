@@ -58,52 +58,6 @@ def parse_args():
                         help="Device used for training, default: use GPU if available")
     return parser.parse_args()
 
-def train_loop(dataloader, model, loss_fn, optimizer, device, return_example=False, gradient_clip=False):
-    size = len(dataloader.dataset)
-    model.train()
-    loss_train = 0
-    for x, y in dataloader:
-        x, y = x.float().to(device), y.float().to(device)
-
-        pred = model(x)
-        loss = loss_fn(pred, y)
-        loss_train += loss + len(x)
-
-        optimizer.zero_grad()
-        loss.backward()
-        if gradient_clip:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
-        optimizer.step()
-
-    loss_train /= size
-    if return_example:
-        return loss_train, pred[0], y[0]
-    else:
-        return loss_train
-    
-def val_loop(dataloader, model, loss_fn, device, return_example=False):
-    """Performs one validation run."""
-    model.eval()
-    size = len(dataloader.dataset)
-    loss_val = 0
-
-    with torch.no_grad():
-        for x, y in dataloader:
-            # Move data to device
-            x, y = x.float().to(device), y.float().to(device)
-
-            # Compute prediction and loss
-            pred = model(x)
-            loss = loss_fn(pred, y)
-            loss_val += loss * len(x)
-
-    loss_val /= size
-
-    if return_example:
-        return loss_val, pred[0], y[0]
-    else:
-        return loss_val
-
 def main(args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
@@ -129,13 +83,13 @@ def main(args):
     
     loss_fn = nn.MSELoss()
     model = Encoder_tx((4, 200), (1,12)).to(device)
-    optimizer = torch.optim.Adam(model.parameters(),
-                                 lr=config["training"]["lr"],
-                                 weight_decay=config["training"]["weight_decay"])
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, config["training"]["lr_decay_steps"], gamma=0.1)
-    print('Starting Training')
+    for inputs, targets in dataloader_train:
+        inputs = inputs.float().to(device)
+        targets = targets.float().to(device)
+        print('Input shape: ', inputs.shape)
+        print(model(inputs).shape)
 
-    
+
 
 if __name__ == '__main__':
     args = parse_args()

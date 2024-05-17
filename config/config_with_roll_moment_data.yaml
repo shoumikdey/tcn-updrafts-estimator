@@ -6,7 +6,7 @@ training:
     use_roll_moment_data: True  # Note: Adjust "obs_dim" below accordingly.
 
     epochs: 100  # Number of training epochs
-    mini_batch_size: 64 # Size of mini-batches
+    mini_batch_size: 64  # Size of mini-batches
     lr: 0.001  # Initial learning rate
     lr_decay_steps: [50,95]  # Number of epochs before learning rate decays by factor 0.1
     weight_decay: 0.00001  # L2 regularization
