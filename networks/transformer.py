@@ -155,6 +155,5 @@ class Encoder_tx(nn.Module):
     x = self.fc2(x)
     x = self.dropout2(x)
     x = torch.relu(x)
-    if (len(x.shape)>2):
-        x = torch.mean(x, 0)
+    x = torch.mean(x, 0, keepdim=len(x.shape)<=2)
     return x

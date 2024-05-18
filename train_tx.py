@@ -83,6 +83,7 @@ def main(args):
     
     loss_fn = nn.MSELoss()
     model = Encoder_tx((4, 200), (1,12)).to(device)
+    print(summary(model), (1,4,200))
     for inputs, targets in dataloader_train:
         inputs = inputs.float().to(device)
         targets = targets.float().to(device)
