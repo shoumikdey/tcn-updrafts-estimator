@@ -28,6 +28,7 @@ from torch import optim
 from torchinfo import summary
 import os
 from networks.transformer import Encoder_tx
+from networks.sparse_transformer import Encoder_sparse
 
 from utils.data import UpdraftsDataset, Normalizer, remove_roll_moment
 from torch.utils.data import DataLoader
@@ -82,7 +83,7 @@ def main(args):
     dataloader_val = DataLoader(data_val, batch_size=config["training"]["mini_batch_size"], shuffle=True)
     
     loss_fn = nn.MSELoss()
-    model = Encoder_tx((4, 200), (1,12)).to(device)
+    model = Encoder_sparse((4, 200), (1,12)).to(device)
     print(summary(model), (1,4,200))
     for inputs, targets in dataloader_train:
         inputs = inputs.float().to(device)

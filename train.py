@@ -26,6 +26,7 @@ import yaml
 from utils.data import UpdraftsDataset, Normalizer, remove_roll_moment
 from networks.tcn import TCN
 from networks.transformer import Encoder_tx
+from networks.sparse_transformer import Encoder_sparse
 
 
 def parse_args():
@@ -146,7 +147,7 @@ def main(args):
 
     # Configure network
     #model = TCN(config).to(device)
-    model = Encoder_tx((4, 200), (1,12)).to(device)
+    model = Encoder_sparse((4, 200), (1,12)).to(device)
 
     # Define loss function
     loss_fn = nn.MSELoss()

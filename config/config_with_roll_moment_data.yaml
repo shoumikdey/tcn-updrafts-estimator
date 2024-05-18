@@ -50,7 +50,7 @@ updrafts:
     w_range: [2, 10]  # Bounds of the continuous uniform distribution the updraft strength values are sampled from [m/s]
     r_range: [50, 100]  # Bounds of the continuous uniform distribution the updraft width values are sampled from [m]
     pos_range: [[100, 900], [100, 900]] # Bounds of the continuous uniform distribution the updraft positions are sampled from (north, east) [m]
-    dist_min: 200  # Minimum distance between the centers of two updrafts [m]
+    dist_min: 1000  # Minimum distance between the centers of two updrafts [m]
 
 # Parameters for the horizontal wind
 horizontal_wind:
@@ -62,7 +62,7 @@ simulation:
     add_noise: True  # Add the noise specified below to the simulated measurements?
     noise_sd_w: 0.05  # Standard deviation of normally distributed noise for the updraft velocities [m/s]
     noise_sd_l: 0.06 # Standard deviation of normally distributed noise for the roll moments induced by updrafts [Nm]
-    dt_output_sequence: 0.02  # Sampling period of output sequences [s]
+    dt_output_sequence: 0.1  # Sampling period of output sequences [s]
     output_sequence_length: 200  # Desired minimum sequence length. Shorter sequences are discarded. Longer sequences are truncated.
 
 # Min and max values used to normalize the training data and labels/predictions
